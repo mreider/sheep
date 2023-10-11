@@ -1,0 +1,164 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dynatrace-otelcol-agent-k8s-enrich-config
+data:
+  otel-collector-config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:         
+    processors:  
+      cumulativetodelta: {}
+      k8sattributes:
+        auth_type: "serviceAccount"
+        passthrough: false
+        filter:
+          node_from_env_var: K8S_NODE_NAME        
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.cluster.uid
+        pod_association:
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.name
+            - from: resource_attribute
+              name: k8s.namespace.name
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+          - sources:
+            - from: connection              
+      transform:
+        error_mode: ignore
+        trace_statements:
+          - context: resource
+            statements:
+              - set(attributes["dt.kubernetes.workload.kind"], "statefulset") where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "deployment") where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "daemonset") where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.daemonset.name"]) where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.cluster.id"], attributes["k8s.cluster.uid"]) where IsString(attributes["k8s.cluster.uid"]) 
+    exporters:
+      otlphttp:
+        endpoint: ${DT_API_ENDPOINT}api/v2/otlp
+        headers:
+          Authorization: "Api-Token ${DT_API_TOKEN}"     
+    service:
+      telemetry:
+        logs:
+          level: "debug"    
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [k8sattributes, transform]
+          exporters: [otlphttp]          
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dynatrace-otelcol-agent-k8s-enrich
+spec:
+  selector:
+    matchLabels:
+      app: dynatrace-otelcol-agent-k8s-enrich
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: dynatrace-otelcol-agent-k8s-enrich
+    spec:
+      serviceAccountName: dynatrace-otelcol
+      containers:
+        - args: ["--config", "/conf/otel-collector-config.yaml"]
+          env:
+            - name: DT_API_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-otelcol-dt-api-credentials
+                  key: DT_API_ENDPOINT
+            - name: DT_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-otelcol-dt-api-credentials
+                  key: DT_API_TOKEN            
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: otel/opentelemetry-collector-contrib
+          name: otel-collector
+          ports:
+          - containerPort: 4317 # Default OpenTelemetry receiver port.   
+            hostPort: 54317  
+          resources:
+            limits:
+              cpu: 200m
+              memory: 400Mi
+            requests:
+              cpu: 200m
+              memory: 400Mi
+          volumeMounts:
+            - name: dynatrace-otelcol-agent-k8s-enrich-config
+              mountPath: /conf
+          # livenessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: 13133 # Health Check extension default port.
+          # readinessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: 13133 # Health Check extension default port.
+      volumes:
+        - configMap:
+            name: dynatrace-otelcol-agent-k8s-enrich-config
+            items:
+              - key: otel-collector-config
+                path: otel-collector-config.yaml
+          name: dynatrace-otelcol-agent-k8s-enrich-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: sheep
+  name: dynatrace-otelcol
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dynatrace-otelcol
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "services", "pods", "namespaces", "endpoints"]
+    verbs: ["list", "watch", "get"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["list", "watch", "get"]    
+  - apiGroups: ["extensions"]
+    resources: ["replicasets"]
+    verbs: ["list", "watch", "get"]        
+---
+apiVersion: rbac.authorization.k8s.io/v1
+# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+kind: ClusterRoleBinding
+metadata:
+  name: dynatrace-otelcol
+subjects:
+- kind: ServiceAccount
+  name: dynatrace-otelcol
+  namespace: sheep
+roleRef:
+  kind: ClusterRole
+  name: dynatrace-otelcol
+  apiGroup: rbac.authorization.k8s.io

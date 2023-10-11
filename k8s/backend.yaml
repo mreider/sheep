@@ -1,0 +1,49 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: checkout
+          image: mreider/sheep-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: "0.5"
+          env:
+            - name: app
+              value: "k8s"
+            - name: FLASK_ENV
+              value: production
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: COLLECTOR_SERVICE_ADDR
+              value: $(HOST_IP):54317
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: "TCP"
+      port: 5000
+      targetPort: 5000

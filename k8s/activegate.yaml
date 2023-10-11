@@ -1,0 +1,20 @@
+apiVersion: dynatrace.com/v1beta1
+kind: DynaKube
+metadata:
+  name: sheep-cluster
+  namespace: dynatrace
+  annotations:
+    feature.dynatrace.com/automatic-kubernetes-api-monitoring: "true"
+spec:
+  apiUrl: https://bmm59542.dev.dynatracelabs.com/api
+  activeGate:
+    capabilities:
+      - kubernetes-monitoring
+      - dynatrace-api
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1.5Gi

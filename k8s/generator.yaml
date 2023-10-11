@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: generator
+spec:
+  selector:
+    matchLabels:
+      app: generator
+  template:
+    metadata:
+      labels:
+        app: generator
+    spec:
+      containers:
+        - name: generator
+          image: mreider/sheep-generator:latest
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: "0.5"
