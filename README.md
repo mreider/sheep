@@ -1,12 +1,12 @@
 # sheep
 
-This is a very simple app to demonstrate an Open Telemetry Collector with proper enrichment according the Dynatrace instructions (here)[https://www.dynatrace.com/support/help/extend-dynatrace/opentelemetry/collector/use-cases/k8s-enrich]. By using a collector approach we do not have to modify application source-code for enrichment.
+This is a very simple app to demonstrate an Open Telemetry Collector with proper enrichment according the Dynatrace instructions [here](https://www.dynatrace.com/support/help/extend-dynatrace/opentelemetry/collector/use-cases/k8s-enrich). By using a collector approach we do not have to modify application source-code for enrichment.
 
 ## Tokens
 
 Generate two Dynatrace tokens. Put an ingest token in `k8s/secret.yaml` along with your environment URL. Put an Operator token in dt-secret.yaml.
 
-(token hel)[https://www.dynatrace.com/support/help/setup-and-configuration/setup-on-k8s/installation/tokens-permissions]
+[token help](https://www.dynatrace.com/support/help/setup-and-configuration/setup-on-k8s/installation/tokens-permissions)
 
 Also update `k8s/activegate.yaml` with your environment URL.
 
