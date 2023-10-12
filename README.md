@@ -2,6 +2,12 @@
 
 This is a very simple app to demonstrate an Open Telemetry Collector with proper enrichment according the Dynatrace instructions [here](https://www.dynatrace.com/support/help/extend-dynatrace/opentelemetry/collector/use-cases/k8s-enrich). By using a collector approach we do not have to modify application source-code for enrichment.
 
+## What you get
+
+Davis, proper topology, logs, metrics, and traces in context.
+
+![dynatrace screen](dt.png)
+
 ## Tokens
 
 Generate two Dynatrace tokens. Put an ingest token in `k8s/secret.yaml` along with your environment URL. Put an Operator token in dt-secret.yaml.
