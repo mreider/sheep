@@ -62,8 +62,15 @@ data:
         traces:
           receivers: [otlp]
           processors: [k8sattributes, transform]
-          exporters: [otlphttp]          
-
+          exporters: [otlphttp]
+        metrics:
+          receivers: [otlp]
+          processors: [cumulativetodelta,k8sattributes, transform]
+          exporters: [otlphttp]
+        logs:
+          receivers: [otlp]
+          processors: [k8sattributes, transform]
+          exporters: [otlphttp]        
 ---
 apiVersion: apps/v1
 kind: DaemonSet

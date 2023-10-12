@@ -7,6 +7,12 @@ from opentelemetry.sdk.trace.export import (BatchSpanProcessor)
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (OTLPSpanExporter,)
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+    OTLPLogExporter,
+)
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 import logging
 import time
 import random
@@ -22,11 +28,18 @@ merged.update({
 })
 
 resource = Resource.create(merged)
+
+resource = Resource.create(merged)
+logger_provider = LoggerProvider(resource=resource)
+set_logger_provider(logger_provider)
+Lexporter = OTLPLogExporter(insecure=True,endpoint=os.environ["COLLECTOR_SERVICE_ADDR"])
+logger_provider.add_log_record_processor(BatchLogRecordProcessor(Lexporter))
+handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+logging.getLogger().addHandler(handler)
+
 tracer_provider = TracerProvider(resource=resource)
 span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=os.environ["COLLECTOR_SERVICE_ADDR"],insecure=True))
 tracer_provider.add_span_processor(span_processor)
-format = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
-LoggingInstrumentor().instrument(set_logging_format=format)
 RequestsInstrumentor().instrument()
 trace.set_tracer_provider(tracer_provider)
 FlaskInstrumentor().instrument_app(app)
@@ -40,9 +53,11 @@ def index():
         if random.random() <= 0.02:
             for _ in range(50):
                 resp = requests.get(url="http://backend:5000/")
+                logging.info("backend requested")
                 time.sleep(.05)
         else:
             resp = requests.get(url="http://backend:5000/")
+            logging.info("backend requested")
         print(resp.status_code)
         return "🐏"
 
